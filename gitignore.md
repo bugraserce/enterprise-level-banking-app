@@ -44,3 +44,7 @@ crash.log
 # === OS ===
 *.tmp
 *.swp
+
+# === Local AI tools ===
+.kilo/
+.opencode/
