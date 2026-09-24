@@ -1,0 +1,71 @@
+# Local dev infrastructure: Postgres + Redis + RabbitMQ.
+# App itself runs from IDE for now (fast debug). Containerized later.
+# Network: single bridge (banking-net) mimics VPC subnet in mini form.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: banking-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-banking}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-banking123}
+      POSTGRES_DB: ${POSTGRES_DB:-bankingdb}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - banking-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-banking}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: banking-redis
+    restart: unless-stopped
+    # appendonly = survive container restart, like local persistence.
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    networks:
+      - banking-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: banking-rabbit
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-banking}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-banking123}
+    ports:
+      - "5672:5672"     # AMQP (app -> broker)
+      - "15672:15672"   # Management UI (senin için)
+    volumes:
+      - rabbitdata:/var/lib/rabbitmq
+    networks:
+      - banking-net
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+networks:
+  banking-net:
+    driver: bridge
+
+volumes:
+  pgdata:
+  redisdata:
+  rabbitdata:
