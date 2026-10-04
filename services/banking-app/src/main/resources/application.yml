@@ -10,9 +10,15 @@ spring:
     hikari:
       maximum-pool-size: 10
       minimum-idle: 2
+
   jpa:
+    # open-in-view: false keeps every database query inside the service
+    # layer. With true (the default), rendering a web page could silently
+    # trigger extra queries, hiding slow N+1 patterns until production.
+    open-in-view: false
     hibernate:
-      # validate = schema comes from Flyway, never auto-created. Critical for money tables.
+      # ddl-auto: validate means Flyway migrations own the tables and JPA
+      # only checks the entities match — it never creates or alters columns.
       ddl-auto: validate
     show-sql: false
     properties:

@@ -23,6 +23,10 @@
         <java.version>21</java.version>
         <!-- JJWT 0.12.x: used for access and refresh token signing. Nimbus would require working with a more low-level API. -->
         <jjwt.version>0.12.6</jjwt.version>
+
+        <!-- Boot 3.2 defaults to TC 1.19, whose client fails on Docker 29 (API 1.52).
+        1.21.x is the same API line, fixed for recent engines. -->
+        <testcontainers.version>1.21.4</testcontainers.version>
     </properties>
 
     <dependencies>
@@ -81,6 +85,13 @@
             <artifactId>jjwt-impl</artifactId>
             <version>${jjwt.version}</version>
             <scope>runtime</scope>
+        </dependency>
+
+        <!-- Boot ↔ Testcontainers bridge: @ServiceConnection wiring. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-testcontainers</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
