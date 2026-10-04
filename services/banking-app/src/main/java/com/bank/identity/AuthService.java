@@ -25,9 +25,7 @@ public class AuthService {
   // Constructor injection: Spring supplies the repository, the refresh
   // store, the hasher and the token mint. refreshTtl reads config and
   // falls back to 7 days locally. Final fields keep it share-safe.
-  public AuthService(UserRepository users, RefreshTokenRepository refreshTokens,
-      PasswordEncoder encoder, JwtService jwt,
-      @Value("${banking.security.refresh-ttl:P7D}") Duration refreshTtl) {
+  public AuthService(UserRepository users, RefreshTokenRepository refreshTokens, PasswordEncoder encoder, JwtService jwt, @Value("${banking.security.refresh-ttl:P7D}") Duration refreshTtl) {
     this.users = users;
     this.refreshTokens = refreshTokens;
     this.encoder = encoder;
