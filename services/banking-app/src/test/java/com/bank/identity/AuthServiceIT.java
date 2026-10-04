@@ -50,7 +50,41 @@ class AuthServiceIT {
     void rejectsDuplicateUsername() {
         auth.register(new RegisterRequest("bob", "bob@bank.test", "secret123", "Bob Tester"));
 
-        assertThrows(IllegalArgumentException.class, () ->
+        assertThrows(IdentityTakenException.class, () ->
                 auth.register(new RegisterRequest("bob", "other@bank.test", "secret123", "Bob Copy")));
+    }
+
+    // Login mints a usable pair: the access token carries this user's id.
+    @Test
+    void loginIssuesTokenPair(@Autowired JwtService jwt) {
+        auth.register(new RegisterRequest("carol", "carol@bank.test", "secret123", "Carol Tester"));
+
+        LoginResult pair = auth.login("carol", "secret123");
+
+        assertNotNull(pair.accessToken());
+        assertNotNull(pair.refreshToken());
+        User user = users.findByUsername("carol").orElseThrow();
+        assertEquals(user.getId().toString(), jwt.subjectOf(pair.accessToken()));
+    }
+
+    // Wrong password and unknown user look identical: one generic failure.
+    @Test
+    void loginRejectsBadCredentials() {
+        auth.register(new RegisterRequest("dave", "dave@bank.test", "secret123", "Dave Tester"));
+
+        assertThrows(InvalidCredentialsException.class, () -> auth.login("dave", "nope12345"));
+        assertThrows(InvalidCredentialsException.class, () -> auth.login("ghost", "secret123"));
+    }
+
+    // Rotation: spending a refresh token kills it; replaying it fails.
+    @Test
+    void refreshRotatesSingleUse() {
+        auth.register(new RegisterRequest("erin", "erin@bank.test", "secret123", "Erin Tester"));
+        LoginResult first = auth.login("erin", "secret123");
+
+        LoginResult second = auth.refresh(first.refreshToken());
+
+        assertNotNull(second.accessToken());
+        assertThrows(InvalidCredentialsException.class, () -> auth.refresh(first.refreshToken()));
     }
 }

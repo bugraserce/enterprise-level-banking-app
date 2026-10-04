@@ -134,6 +134,13 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
+            <!-- Failsafe runs *IT classes in integration-test/verify.
+                 Surefire only runs *Test: without this, `mvn test` silently
+                 runs zero tests. `mvn verify` = unit + integration. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+            </plugin>
         </plugins>
     </build>
 </project>

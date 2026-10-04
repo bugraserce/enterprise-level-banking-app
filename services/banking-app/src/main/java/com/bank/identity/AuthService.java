@@ -25,7 +25,9 @@ public class AuthService {
   // Constructor injection: Spring supplies the repository, the refresh
   // store, the hasher and the token mint. refreshTtl reads config and
   // falls back to 7 days locally. Final fields keep it share-safe.
-  public AuthService(UserRepository users, RefreshTokenRepository refreshTokens, PasswordEncoder encoder, JwtService jwt, @Value("${banking.security.refresh-ttl:P7D}") Duration refreshTtl) {
+  public AuthService(UserRepository users, RefreshTokenRepository refreshTokens,
+      PasswordEncoder encoder, JwtService jwt,
+      @Value("${banking.security.refresh-ttl:P7D}") Duration refreshTtl) {
     this.users = users;
     this.refreshTokens = refreshTokens;
     this.encoder = encoder;
@@ -37,6 +39,7 @@ public class AuthService {
   // insert below succeed or fail as a single unit. The UNIQUE columns
   // in auth.users are the final guard: if two people grab the same name
   // at the same instant, the database rejects the second commit.
+  // Duplicate names surface as 409 via IdentityTakenException.
   @Transactional
   public User register(RegisterRequest req) {
     // Login keys are normalized so "Alice", "alice" and " alice " all
@@ -46,10 +49,10 @@ public class AuthService {
     // Fast existence checks give a clear error early. They race by
     // nature, which is why the UNIQUE constraint still has the last word.
     if (users.existsByUsername(username)) {
-      throw new IllegalArgumentException("username taken");
+      throw new IdentityTakenException("username");
     }
     if (users.existsByEmail(email)) {
-      throw new IllegalArgumentException("email taken");
+      throw new IdentityTakenException("email");
     }
     // encode() turns the plain password into a BCrypt hash. The plain
     // text is never stored, never logged, and forgotten right here.
@@ -69,7 +72,7 @@ public class AuthService {
   }
 
   // Login: same error for "no such user", "locked", and "wrong password".
-  // One identical shape means attackers learn nothing by guessing names.
+  // One identical 401 shape means attackers learn nothing by guessing.
   // Success mints a 15-minute access JWT plus a one-time 7-day refresh
   // token whose SHA-256 fingerprint is stored for later rotation.
   @Transactional
@@ -78,24 +81,24 @@ public class AuthService {
     User user = users.findByUsername(key)
         .filter(User::isEnabled)
         .filter(u -> encoder.matches(password, u.getPasswordHash()))
-        .orElseThrow(() -> new IllegalArgumentException("invalid credentials"));
+        .orElseThrow(InvalidCredentialsException::new);
     return issuePair(user);
   }
 
   // Rotation: the presented refresh token dies here (revoked = true) and
   // a fresh pair is born. A stolen token is therefore single-use: the
   // first spend (thief or owner) kills it, the second spend fails loudly.
-  // Expired or unknown tokens get the same generic error as bad logins.
+  // Expired or unknown tokens get the same generic 401 as bad logins.
   @Transactional
   public LoginResult refresh(String refreshToken) {
     RefreshToken row = refreshTokens.findByTokenHash(jwt.sha256(refreshToken))
         .filter(t -> !t.isRevoked())
         .filter(t -> t.getExpiresAt().isAfter(OffsetDateTime.now()))
-        .orElseThrow(() -> new IllegalArgumentException("invalid credentials"));
+        .orElseThrow(InvalidCredentialsException::new);
     row.setRevoked(true);
     User user = users.findById(row.getUserId())
         .filter(User::isEnabled)
-        .orElseThrow(() -> new IllegalArgumentException("invalid credentials"));
+        .orElseThrow(InvalidCredentialsException::new);
     return issuePair(user);
   }
 
